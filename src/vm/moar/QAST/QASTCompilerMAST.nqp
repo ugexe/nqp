@@ -1755,8 +1755,51 @@ my class MASTCompilerInstance {
                 my $tmp_reg := $!regalloc.fresh_register(nqp::const::MVM_reg_obj);
                 $res_reg := $!regalloc.fresh_register($res_kind);
                 %core_op_generators{'getlex'}($!mast_frame, $tmp_reg, $lexref);
+                # Decont ops only work with full-width types (int64, num64, uint64).
+                # For narrower native types, decont into a wider register then truncate.
+                my $decont_reg;
+                my $decont_reg_kind;
+                my $decont_truncop;
+                if $res_kind == nqp::const::MVM_reg_int32 {
+                    $decont_reg_kind := nqp::const::MVM_reg_int64;
+                    $decont_truncop := 'trunc_i32';
+                }
+                elsif $res_kind == nqp::const::MVM_reg_int16 {
+                    $decont_reg_kind := nqp::const::MVM_reg_int64;
+                    $decont_truncop := 'trunc_i16';
+                }
+                elsif $res_kind == nqp::const::MVM_reg_int8 {
+                    $decont_reg_kind := nqp::const::MVM_reg_int64;
+                    $decont_truncop := 'trunc_i8';
+                }
+                elsif $res_kind == nqp::const::MVM_reg_num32 {
+                    $decont_reg_kind := nqp::const::MVM_reg_num64;
+                    $decont_truncop := 'trunc_n32';
+                }
+                elsif $res_kind == nqp::const::MVM_reg_uint32 {
+                    $decont_reg_kind := nqp::const::MVM_reg_uint64;
+                    $decont_truncop := 'trunc_u32';
+                }
+                elsif $res_kind == nqp::const::MVM_reg_uint16 {
+                    $decont_reg_kind := nqp::const::MVM_reg_uint64;
+                    $decont_truncop := 'trunc_u16';
+                }
+                elsif $res_kind == nqp::const::MVM_reg_uint8 {
+                    $decont_reg_kind := nqp::const::MVM_reg_uint64;
+                    $decont_truncop := 'trunc_u8';
+                }
+                if $decont_truncop {
+                    $decont_reg := $!regalloc.fresh_register($decont_reg_kind);
+                }
+                else {
+                    $decont_reg := $res_reg;
+                }
                 %core_op_generators{@decont_opnames[@kind_to_op_slot[$res_kind]]}(
-                    $!mast_frame, $res_reg, $tmp_reg);
+                    $!mast_frame, $decont_reg, $tmp_reg);
+                if $decont_truncop {
+                    push_op($!mast_frame, $decont_truncop, $res_reg, $decont_reg);
+                    $!regalloc.release_register($decont_reg, $decont_reg_kind);
+                }
                 $!regalloc.release_register($tmp_reg, nqp::const::MVM_reg_obj);
             }
             else {
