@@ -1152,6 +1152,49 @@ role NQPMatchRole is export {
         $cursor
     }
 
+    # Scanning approach for lookbehind with subrules.
+    # Unlike method after(), this does not flip the string or regex.
+    # Instead, it tries matching the original regex forward from each
+    # position up to $!pos, succeeding if any match ends exactly at $!pos.
+    method after_scan($regex) {
+        my $*SUPPOSING         := 1;
+
+        my $shared  := $!shared;
+        my int $pos := $!pos;
+
+        # Save and clear current expectations
+        my int $orig_highwater :=
+          nqp::getattr_i($shared, ParseShared, '$!highwater');
+        my $orig_highexpect :=
+          nqp::getattr($shared, ParseShared, '@!highexpect');
+        nqp::bindattr($shared, ParseShared, '@!highexpect', nqp::list_s);
+
+        my $result_cursor := self."!cursor_start_cur"();
+        my int $found := 0;
+
+        # Scan backwards: try starting from pos, pos-1, ... 0
+        my int $i := $pos;
+        while $i >= 0 && !$found {
+            my $cursor := self."!cursor_start_cur"();
+            nqp::bindattr_i($cursor, $?CLASS, '$!from', $i);
+            nqp::bindattr_i($cursor, $?CLASS, '$!pos',  $i);
+            if nqp::getattr_i($regex($cursor), $?CLASS, '$!pos') == $pos {
+                $found := 1;
+            }
+            $i := $i - 1;
+        }
+
+        $found
+          ?? $result_cursor."!cursor_pass"($pos, 'after')
+          !! nqp::bindattr_i($result_cursor, $?CLASS, '$!pos', -3);
+
+        # Restore expectations
+        nqp::bindattr_i($shared, ParseShared, '$!highwater',  $orig_highwater);
+        nqp::bindattr(  $shared, ParseShared, '@!highexpect', $orig_highexpect);
+
+        $result_cursor
+    }
+
     method ws() {
         # skip over any whitespace, fail if between two word chars
         my str $target := nqp::getattr_s($!shared, ParseShared, '$!target');

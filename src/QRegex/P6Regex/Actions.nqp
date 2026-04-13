@@ -608,6 +608,10 @@ class QRegex::P6Regex::Actions is HLL::Actions {
                         $qast[0].push(self.qbuildsub($<nibbler>.ast, :node($/), :anon(1), :addself(1)));
                         $qast[0].push(QAST::IVal.new( :value($litlen) ));  # optional offset to before
                     }
+                    elsif self.has_subrules($<nibbler>.ast) {
+                        $qast[0][0].value('after_scan');
+                        $qast[0].push(self.qbuildsub($<nibbler>.ast, :node($/), :anon(1), :addself(1)));
+                    }
                     else {
                         $qast[0].push(self.qbuildsub(self.flip_ast($<nibbler>.ast), :node($/), :anon(1), :addself(1)));
                     }
@@ -1042,6 +1046,19 @@ class QRegex::P6Regex::Actions is HLL::Actions {
             for @($qast) { self.flip_ast($_) }
         }
         $qast
+    }
+
+    method has_subrules($qast) {
+        return 0 unless nqp::istype($qast, QAST::Regex);
+        if $qast.rxtype eq 'subrule' {
+            return 1;
+        }
+        for @($qast) {
+            if self.has_subrules($_) {
+                return 1;
+            }
+        }
+        return 0;
     }
 
     # This is overridden by a compiler that wants to create code objects
