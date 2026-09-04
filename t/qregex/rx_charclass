@@ -98,4 +98,8 @@ abc <![d]>		abc		y	negated charclass at end of string (issue 9)
 
 <[\«]>			«		y		test for regression introduced with parrot 6.9.0
 
+# todo 2 :jvm<combining characters need NFG>
+<[b\x[308]]>	b\x0308	y	base character and adjacent combining escape form one entry
+<[b\x[308]]>	b	n	base character that forms one entry with a combining escape is not an entry on its own
+
 ## vim: noexpandtab tabstop=4 shiftwidth=4
