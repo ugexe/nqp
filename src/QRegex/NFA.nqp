@@ -125,12 +125,17 @@ class QRegex::NFA {
         $to      := self.addstate if $to < 0;
         my @this := nqp::atpos(@!states, $from);
 
+        # A fate that repeats an earlier one becomes an epsilon edge to
+        # the state already carrying it. It still ends the prefix, so
+        # the caller gets no state to keep building from.
+        my int $ended;
         if $action == nqp::const::EDGE_FATE {
             my $known_value := nqp::atpos($!known, $value);
             if $known_value {
                 if nqp::not_i($to) || $to == $known_value {
                     $action := nqp::const::EDGE_EPSILON;
                     $to     := $known_value;
+                    $ended  := 1;
                 }
             }
             elsif nqp::elems(@this) == 0 {
@@ -143,7 +148,8 @@ class QRegex::NFA {
 
         nqp::push(@this, $action);
         nqp::push(@this, $value);
-        nqp::push(@this, $to)  # push returns value being pushed
+        nqp::push(@this, $to);
+        $ended ?? 0 !! $to
     }
 
     method states() { @!states }
