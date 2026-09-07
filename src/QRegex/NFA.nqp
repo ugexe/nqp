@@ -680,6 +680,11 @@ class QRegex::NFA {
 
 #        my $indent := dentin();
 
+        # A frugal quantifier ends the declarative prefix. The atom it
+        # quantifies matches as little as it can, so neither it nor
+        # anything after it belongs to the longest token.
+        return self.fate($node, $from, $to) if $node.backtrack eq 'f';
+
         my int $min := $node.min // 0;
         my int $max := $node.max // -1; # -1 means Inf
         my $node0   := nqp::atpos($node, 0);
